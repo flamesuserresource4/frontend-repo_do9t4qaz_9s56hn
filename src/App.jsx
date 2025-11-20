@@ -1,73 +1,100 @@
-function App() {
+import { useEffect, useState } from 'react'
+import Sidebar from './components/Sidebar'
+import Topbar from './components/Topbar'
+import MainPanel from './components/MainPanel'
+
+const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+
+export default function App() {
+  const [mode, setMode] = useState('user') // 'user' | 'admin'
+  const [categories, setCategories] = useState([])
+  const [items, setItems] = useState([])
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const fetchCategories = async () => {
+    const res = await fetch(`${API_BASE}/api/categories`)
+    const data = await res.json()
+    setCategories(data)
+    if (!selectedCategoryId && data.length > 0) {
+      setSelectedCategoryId(data[0].id)
+    }
+  }
+
+  const fetchItems = async (categoryId = null) => {
+    const url = categoryId ? `${API_BASE}/api/items?category_id=${categoryId}` : `${API_BASE}/api/items`
+    const res = await fetch(url)
+    const data = await res.json()
+    setItems(data)
+  }
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true)
+        await fetchCategories()
+        await fetchItems(selectedCategoryId)
+      } catch (e) {
+        setError('Failed to load data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  useEffect(() => {
+    fetchItems(selectedCategoryId)
+  }, [selectedCategoryId])
+
+  const addCategory = async (payload) => {
+    const res = await fetch(`${API_BASE}/api/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) throw new Error('Server error')
+    await fetchCategories()
+  }
+
+  const addItem = async (payload) => {
+    const res = await fetch(`${API_BASE}/api/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) throw new Error('Server error')
+    await fetchItems(selectedCategoryId)
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Subtle pattern overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.05),transparent_50%)]"></div>
-
-      <div className="relative min-h-screen flex items-center justify-center p-8">
-        <div className="max-w-2xl w-full">
-          {/* Header with Flames icon */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center mb-6">
-              <img
-                src="/flame-icon.svg"
-                alt="Flames"
-                className="w-24 h-24 drop-shadow-[0_0_25px_rgba(59,130,246,0.5)]"
-              />
-            </div>
-
-            <h1 className="text-5xl font-bold text-white mb-4 tracking-tight">
-              Flames Blue
-            </h1>
-
-            <p className="text-xl text-blue-200 mb-6">
-              Build applications through conversation
-            </p>
-          </div>
-
-          {/* Instructions */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-8 shadow-xl mb-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                1
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Describe your idea</h3>
-                <p className="text-blue-200/80 text-sm">Use the chat panel on the left to tell the AI what you want to build</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                2
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Watch it build</h3>
-                <p className="text-blue-200/80 text-sm">Your app will appear in this preview as the AI generates the code</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                3
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Refine and iterate</h3>
-                <p className="text-blue-200/80 text-sm">Continue the conversation to add features and make changes</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center">
-            <p className="text-sm text-blue-300/60">
-              No coding required • Just describe what you want
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div className="h-screen flex flex-col">
+        <Topbar mode={mode} onChangeMode={setMode} />
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar
+            categories={categories}
+            onAddCategory={addCategory}
+            onSelectCategory={setSelectedCategoryId}
+            selectedCategoryId={selectedCategoryId}
+          />
+          <MainPanel
+            mode={mode}
+            categories={categories}
+            selectedCategoryId={selectedCategoryId}
+            onAddItem={addItem}
+            items={items}
+          />
         </div>
       </div>
+
+      {loading && (
+        <div className="fixed inset-0 grid place-items-center bg-black/40 text-white">Loading...</div>
+      )}
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-red-600 text-white px-3 py-2 rounded">{error}</div>
+      )}
     </div>
   )
 }
-
-export default App
